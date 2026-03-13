@@ -47,10 +47,8 @@ jobs:
             f.write(json_str)
           '
 
-          # Set output for next step
-          echo "config<<EOF" >> $CLOUDBEES_OUTPUTS/config
-          cat large-config.json >> $CLOUDBEES_OUTPUTS/config
-          echo "EOF" >> $CLOUDBEES_OUTPUTS/config
+          # Set output for next job (CloudBees format - direct write, not heredoc)
+          cat large-config.json > $CLOUDBEES_OUTPUTS/config
 
   call-reusable:
     needs: test-5kb-input
@@ -98,9 +96,8 @@ jobs:
             f.write(json_str)
           '
 
-          echo "config<<EOF" >> $CLOUDBEES_OUTPUTS/config
-          cat huge-config.json >> $CLOUDBEES_OUTPUTS/config
-          echo "EOF" >> $CLOUDBEES_OUTPUTS/config
+          # Set output for next job (CloudBees format - direct write, not heredoc)
+          cat huge-config.json > $CLOUDBEES_OUTPUTS/config
 
   call-reusable-large:
     needs: test-10kb-input
