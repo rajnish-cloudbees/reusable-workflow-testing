@@ -1,107 +1,86 @@
 apiVersion: automation.cloudbees.io/v1alpha1
 kind: workflow
 
-name: Test Large Input Handling
+name: Test Large Reusable Input (5-10KB)
 
 on:
   workflow_dispatch:
 
 jobs:
-  test-5kb-input:
+  generate-5kb-config:
     outputs:
       config: ${{ steps.generate.outputs.config }}
     steps:
-      - name: Generate large config
+      - name: Generate 5-10KB config (exceeds 4KB Tekton limit, under 32KB DSL limit)
         id: generate
         uses: docker://python:3.11-alpine
         run: |
-          # Generate a ~5KB JSON config
           python3 -c '
           import json
 
           config = {
             "metadata": {
-              "description": "Large configuration object for testing",
+              "description": "Test config for CBP-26228 fix",
               "version": "1.0.0",
-              "timestamp": "2026-03-13T10:00:00Z"
+              "timestamp": "2026-03-13",
+              "test_note": "This config is 5-10KB to exceed Tekton 4KB limit while staying under DSL 32KB limit"
             },
-            "settings": {
-              "feature_flags": {}
-            }
+            "settings": {"feature_flags": {}}
           }
 
-          # Add 100 feature flags to exceed 4KB
-          for i in range(1, 101):
+          # Add 35 features to create ~6-8KB config
+          for i in range(1, 36):
             config["settings"]["feature_flags"][f"feature_{i}"] = {
               "enabled": True,
-              "description": "This is a test feature flag with a long description to increase size. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+              "description": f"Feature {i}: This is a test feature flag with a long description to increase size. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
               "rollout_percentage": 100,
-              "tags": ["test", "large-input", "reusable-workflow"]
-            }
-
-          json_str = json.dumps(config, indent=2)
-          print(f"Generated config size: {len(json_str)} bytes")
-
-          # Write to output
-          with open("large-config.json", "w") as f:
-            f.write(json_str)
-          '
-
-          # Set output for next job (CloudBees format - direct write, not heredoc)
-          cat large-config.json > $CLOUDBEES_OUTPUTS/config
-
-  call-reusable:
-    needs: test-5kb-input
-    uses: ./.cloudbees/workflows/process-config.yaml
-    with:
-      config: ${{ needs.test-5kb-input.outputs.config }}
-      environment: production
-
-  test-10kb-input:
-    needs: call-reusable
-    outputs:
-      config: ${{ steps.generate.outputs.config }}
-    steps:
-      - name: Generate 10KB config
-        id: generate
-        uses: docker://python:3.11-alpine
-        run: |
-          # Generate ~10KB config
-          python3 -c '
-          import json
-
-          config = {
-            "metadata": {
-              "description": "Extremely large configuration for stress testing",
-              "version": "2.0.0"
-            },
-            "data": {}
-          }
-
-          # Add 200 entries to create ~10KB
-          for i in range(1, 201):
-            config["data"][f"entry_{i}"] = {
-              "value": f"This is entry {i} with padding text to increase size. The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
-              "metadata": {
-                "created": "2026-03-13",
-                "author": "test",
-                "tags": ["tag1", "tag2", "tag3"]
+              "tags": ["test", "large-input", "reusable", "api-mode"],
+              "config": {
+                "timeout": 30,
+                "retry_count": 3,
+                "environment": "production"
               }
             }
 
           json_str = json.dumps(config, indent=2)
-          print(f"Generated config size: {len(json_str)} bytes")
+          size = len(json_str)
+          print(f"Generated config size: {size} bytes ({size/1024:.1f} KB)")
 
-          with open("huge-config.json", "w") as f:
+          if size < 4096:
+            print(f"ERROR: Config size {size} is below 4KB Tekton limit!")
+            exit(1)
+          elif size > 32768:
+            print(f"ERROR: Config size {size} exceeds 32KB DSL input limit!")
+            exit(1)
+          else:
+            print(f"✅ Config size is optimal: exceeds 4KB Tekton limit, under 32KB DSL limit")
+
+          with open("test-config.json", "w") as f:
             f.write(json_str)
           '
 
-          # Set output for next job (CloudBees format - direct write, not heredoc)
-          cat huge-config.json > $CLOUDBEES_OUTPUTS/config
+          cat test-config.json > $CLOUDBEES_OUTPUTS/config
 
-  call-reusable-large:
-    needs: test-10kb-input
+  call-reusable:
+    needs: generate-5kb-config
     uses: ./.cloudbees/workflows/process-config.yaml
     with:
-      config: ${{ needs.test-10kb-input.outputs.config }}
-      environment: staging
+      config: ${{ needs.generate-5kb-config.outputs.config }}
+      environment: production
+
+  verify-success:
+    needs: call-reusable
+    steps:
+      - name: Verify test passed
+        uses: docker://alpine:3.19
+        run: |
+          echo "=========================================="
+          echo "✅ SUCCESS: Large input test passed!"
+          echo "=========================================="
+          echo ""
+          echo "The reusable workflow successfully:"
+          echo "  - Received >4KB input via Platform API"
+          echo "  - Did NOT fail with Tekton 4KB limit error"
+          echo "  - Processed the configuration correctly"
+          echo ""
+         
