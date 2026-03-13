@@ -1,0 +1,46 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+
+name: Process Large Configuration
+description: Reusable workflow that accepts large configuration objects
+
+inputs:
+  config:
+    type: string
+    required: true
+    description: Large JSON configuration
+  environment:
+    type: string
+    required: false
+    default: "dev"
+
+jobs:
+  validate:
+    steps:
+      - name: Show config size
+        run: |
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Config length: ${#CONFIG_INPUT}"
+          echo "First 100 chars: ${CONFIG_INPUT:0:100}..."
+        env:
+          CONFIG_INPUT: ${{ inputs.config }}
+
+      - name: Parse and validate JSON
+        run: |
+          echo "$CONFIG_INPUT" | jq '.' > /tmp/config.json
+          KEYS_COUNT=$(jq 'keys | length' /tmp/config.json)
+          echo "✅ Valid JSON with $KEYS_COUNT keys"
+        env:
+          CONFIG_INPUT: ${{ inputs.config }}
+
+  process:
+    needs: validate
+    steps:
+      - name: Process configuration
+        run: |
+          echo "Processing large configuration..."
+          DESC=$(echo "$CONFIG_INPUT" | jq -r '.metadata.description // "No description"')
+          echo "Description: $DESC"
+          echo "✅ Reusable workflow successfully processed large input!"
+        env:
+          CONFIG_INPUT: ${{ inputs.config }}
