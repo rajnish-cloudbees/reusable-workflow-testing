@@ -2,20 +2,16 @@ apiVersion: automation.cloudbees.io/v1alpha1
 kind: workflow
 
 name: Test Large Input Handling
-description: Tests reusable workflow with >4KB input (exceeds Tekton limit)
 
 on:
-  push:
-    branches:
-      - '**'
   workflow_dispatch:
 
 jobs:
-  # Test with 5KB input (exceeds 4KB Tekton limit)
   test-5kb-input:
     steps:
       - name: Generate large config
         id: generate
+        uses: docker://python:3.11-alpine
         run: |
           # Generate a ~5KB JSON config
           python3 -c '
@@ -61,12 +57,12 @@ jobs:
       config: ${{ needs.test-5kb-input.outputs.config }}
       environment: production
 
-  # Test with even larger 10KB input
   test-10kb-input:
     needs: call-reusable
     steps:
       - name: Generate 10KB config
         id: generate
+        uses: docker://python:3.11-alpine
         run: |
           # Generate ~10KB config
           python3 -c '
@@ -92,7 +88,7 @@ jobs:
             }
 
           json_str = json.dumps(config, indent=2)
-          print(f"Generated config size: {len(json_str}} bytes")
+          print(f"Generated config size: {len(json_str)} bytes")
 
           with open("huge-config.json", "w") as f:
             f.write(json_str)
