@@ -8,6 +8,8 @@ on:
 
 jobs:
   test-5kb-input:
+    outputs:
+      config: ${{ steps.generate.outputs.config }}
     steps:
       - name: Generate large config
         id: generate
@@ -59,6 +61,8 @@ jobs:
 
   test-10kb-input:
     needs: call-reusable
+    outputs:
+      config: ${{ steps.generate.outputs.config }}
     steps:
       - name: Generate 10KB config
         id: generate
