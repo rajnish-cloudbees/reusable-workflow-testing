@@ -22,7 +22,8 @@ jobs:
         uses: docker://alpine:3.19
         run: |
           echo "Environment: ${{ inputs.environment }}"
-          echo "Config length: ${#CONFIG_INPUT}"
+          CONFIG_SIZE=${#CONFIG_INPUT}
+          echo "Config size: $CONFIG_SIZE bytes ($(echo "scale=1; $CONFIG_SIZE/1024" | bc) KB)"
           echo "First 100 chars: ${CONFIG_INPUT:0:100}..."
         env:
           CONFIG_INPUT: ${{ inputs.config }}
@@ -30,10 +31,16 @@ jobs:
       - name: Parse and validate JSON
         uses: docker://alpine:3.19
         run: |
-          apk add --no-cache jq
+          apk add --no-cache jq bc
           echo "$CONFIG_INPUT" | jq '.' > /tmp/config.json
           KEYS_COUNT=$(jq 'keys | length' /tmp/config.json)
-          echo "✅ Valid JSON with $KEYS_COUNT keys"
+          echo "✅ Valid JSON with $KEYS_COUNT top-level keys"
+
+          # Check if it's a large config (exceeds Tekton 4KB limit)
+          CONFIG_SIZE=${#CONFIG_INPUT}
+          if [ "$CONFIG_SIZE" -gt 4096 ]; then
+            echo "✅ Config size ($CONFIG_SIZE bytes) exceeds Tekton 4KB limit"
+          fi
         env:
           CONFIG_INPUT: ${{ inputs.config }}
 
@@ -47,6 +54,11 @@ jobs:
           echo "Processing large configuration..."
           DESC=$(echo "$CONFIG_INPUT" | jq -r '.metadata.description // "No description"')
           echo "Description: $DESC"
+
+          # Count features
+          FEATURE_COUNT=$(echo "$CONFIG_INPUT" | jq '.settings.feature_flags | length // 0')
+          echo "Feature flags: $FEATURE_COUNT"
+
           echo "✅ Reusable workflow successfully processed large input!"
         env:
           CONFIG_INPUT: ${{ inputs.config }}
