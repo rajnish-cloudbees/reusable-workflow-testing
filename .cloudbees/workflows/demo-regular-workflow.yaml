@@ -33,10 +33,10 @@ jobs:
               service_count = 10
               desc = "Small manifest (~3KB) - baseline test"
           elif size == "medium-16kb":
-              service_count = 45
+              service_count = 75
               desc = "Medium manifest (~10KB) - demonstrates CBP-20940"
           else:  # large-30kb
-              service_count = 75
+              service_count = 225
               desc = "Large manifest (~22KB) - near 32KB validation limit"
 
           # Generate services
