@@ -9,11 +9,11 @@ on:
         description: 'Test scenario'
         type: choice
         options:
-          - small-4kb
-          - medium-16kb
-          - large-50kb
+          - small-4KB
+          - medium-16KB
+          - large-50KB
         required: true
-        default: medium-16kb
+        default: medium-16KB
 
 jobs:
   generate-and-prepare:
@@ -29,13 +29,13 @@ jobs:
           # Determine size based on input
           size = "${{ inputs.test-size }}"
 
-          if size == "small-4kb":
+          if size == "small-4KB":
               service_count = 10
               desc = "Small (~3KB) - always works"
-          elif size == "medium-16kb":
+          elif size == "medium-16KB":
               service_count = 75
               desc = "Medium (~16KB) - shows CBP-26228 value"
-          else:  # large-50kb
+          else:  # large-50KB
               service_count = 225
               desc = "Large (~50KB) - demonstrates capacity"
 
