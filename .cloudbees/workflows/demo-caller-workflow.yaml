@@ -126,7 +126,7 @@ jobs:
 
   call-reusable-workflow:
     needs: generate-and-prepare
-    uses: ./demo-reusable-workflow.yaml
+    uses: ./.cloudbees/workflows/demo-reusable-wrokflow.yaml
     with:
       manifest-json: ${{ needs.generate-and-prepare.outputs.manifest }}
       test-info: ${{ inputs.test-size }}
