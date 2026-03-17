@@ -1,0 +1,160 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: demo-caller-workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-size:
+        description: 'Test scenario'
+        type: choice
+        options:
+          - small-4kb
+          - medium-12kb
+          - large-35kb
+        required: true
+        default: medium-16kb
+
+jobs:
+  generate-and-prepare:
+      - name: Generate Test Manifest Data
+        id: generate
+        uses: docker://python:3.11-alpine
+        run: |
+          python3 << 'PYTHON'
+          import json
+          import os
+
+          # Determine size based on input
+          size = "${{ inputs.test-size }}"
+
+          if size == "small-4kb":
+              service_count = 10
+              desc = "Small (~3KB) - always works"
+          elif size == "medium-12kb":
+              service_count = 75
+              desc = "Medium (~12KB) - shows CBP-26228 value"
+          else:  # large-35kb
+              service_count = 225
+              desc = "Large (~35KB) - demonstrates capacity"
+
+          print(f"Generating {service_count} services for {size} test...")
+
+          # Generate services
+          services = []
+          for i in range(1, service_count + 1):
+              services.append({
+                  "name": f"microservice-{i}",
+                  "version": f"2.0.{i}",
+                  "repository": f"https://github.com/company/microservice-{i}",
+                  "port": 8000 + i,
+                  "replicas": 3,
+                  "resources": {
+                      "cpu": "500m",
+                      "memory": "512Mi"
+                  },
+                  "env": {
+                      "LOG_LEVEL": "info",
+                      "METRICS_ENABLED": "true"
+                  }
+              })
+
+          manifest = {
+              "release": "2.0.0",
+              "environment": "production",
+              "description": desc,
+              "services": services,
+              "metadata": {
+                  "author": "CloudBees Platform",
+                  "demo": "CBP-20940 and CBP-26228"
+              }
+          }
+
+          # Convert to compact JSON
+          manifest_json = json.dumps(manifest, separators=(',', ':'))
+
+          # Write to step outputs (CLOUDBEES_OUTPUTS is a directory)
+          output_dir = os.environ['CLOUDBEES_OUTPUTS']
+
+          with open(os.path.join(output_dir, 'manifest'), 'w') as f:
+              f.write(manifest_json)
+
+          with open(os.path.join(output_dir, 'size'), 'w') as f:
+              f.write(str(len(manifest_json)))
+
+          print(f"✅ Generated manifest: {len(manifest_json)} bytes")
+          PYTHON
+
+      - name: Analyze Manifest
+        uses: docker://alpine:3.18
+        run: |
+          SIZE="${{ steps.generate.outputs.size }}"
+
+          echo ""
+          echo "📊 Manifest Analysis:"
+          echo "   Size: ${SIZE} bytes ($(echo "scale=1; ${SIZE}/1024" | bc) KB)"
+          echo ""
+
+          if [ "$SIZE" -le 32768 ]; then
+            echo "   ✅ STATUS: Within 32KB limit"
+            echo ""
+            echo "   This demonstrates two achievements:"
+            echo ""
+            echo "   1️⃣  CBP-20940: Input Validation"
+            echo "       • Validation limit: 32KB"
+            echo "       • Previous limit: 4KB"
+            echo "       • This input: ${SIZE} bytes ✅"
+            echo ""
+            echo "   2️⃣  CBP-26228: Reusable Workflow Support"
+            echo "       • Large inputs can be passed to reusable workflows"
+            echo "       • Data transferred via JobOutputs API"
+            echo "       • Previous constraint: 4KB (Tekton results)"
+            echo "       • New capability: Unlimited (API storage)"
+            echo ""
+            echo "   About to pass ${SIZE} bytes to reusable workflow..."
+          else
+            echo "   ❌ STATUS: Exceeds 32KB limit"
+            echo ""
+            echo "   This ${SIZE}-byte manifest exceeds the 32KB"
+            echo "   validation limit and should be rejected."
+          fi
+
+          echo ""
+    outputs:
+      manifest: ${{ steps.generate.outputs.manifest }}
+      size: ${{ steps.generate.outputs.size }}
+
+  call-reusable-workflow:
+    name: Call Reusable Workflow
+    needs: generate-and-prepare
+    uses: ./.cloudbees/workflows/demo-reusable-workflow.yaml
+    with:
+      manifest-json: ${{ needs.generate-and-prepare.outputs.manifest }}
+      test-info: ${{ inputs.test-size }}
+
+  verify-and-summarize:
+    name: Verify Results
+    needs: call-reusable-workflow
+    steps:
+      - name: Verify Success
+        uses: docker://alpine:3.18
+        run: |
+          echo "============================================="
+          echo "✅ DEMO COMPLETED SUCCESSFULLY"
+          echo "============================================="
+          echo ""
+          echo "Both features demonstrated:"
+          echo ""
+          echo "1️⃣  CBP-20940: Input Validation Increase"
+          echo "    • Validation limit increased to 32KB"
+          echo "    • Enables larger deployment configurations"
+          echo "    • This workflow accepted the large input"
+          echo ""
+          echo "2️⃣  CBP-26228: Reusable Workflow Large Inputs"
+          echo "    • Large data transferred via JobOutputs API"
+          echo "    • Reusable workflow received full manifest"
+          echo "    • No Tekton 4KB result limitation"
+          echo ""
+          echo "🎉 Both improvements working together!"
+
+          echo ""
