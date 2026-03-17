@@ -17,6 +17,7 @@ on:
 
 jobs:
   generate-and-prepare:
+    steps:
       - name: Generate Test Manifest Data
         id: generate
         uses: docker://python:3.11-alpine
@@ -118,14 +119,12 @@ jobs:
             echo "   This ${SIZE}-byte manifest exceeds the 32KB"
             echo "   validation limit and should be rejected."
           fi
-
           echo ""
     outputs:
       manifest: ${{ steps.generate.outputs.manifest }}
       size: ${{ steps.generate.outputs.size }}
 
   call-reusable-workflow:
-    name: Call Reusable Workflow
     needs: generate-and-prepare
     uses: ./.cloudbees/workflows/demo-reusable-workflow.yaml
     with:
@@ -133,7 +132,6 @@ jobs:
       test-info: ${{ inputs.test-size }}
 
   verify-and-summarize:
-    name: Verify Results
     needs: call-reusable-workflow
     steps:
       - name: Verify Success
