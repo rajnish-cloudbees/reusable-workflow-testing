@@ -10,10 +10,10 @@ on:
         type: choice
         options:
           - small-4kb
-          - medium-12kb
-          - large-35kb
+          - medium-16kb
+          - large-50kb
         required: true
-        default: medium-12kb
+        default: medium-16kb
 
 jobs:
   generate-and-prepare:
@@ -32,12 +32,12 @@ jobs:
           if size == "small-4kb":
               service_count = 10
               desc = "Small (~3KB) - always works"
-          elif size == "medium-12kb":
+          elif size == "medium-16kb":
               service_count = 75
-              desc = "Medium (~12KB) - shows CBP-26228 value"
-          else:  # large-35kb
+              desc = "Medium (~16KB) - shows CBP-26228 value"
+          else:  # large-50kb
               service_count = 225
-              desc = "Large (~35KB) - demonstrates capacity"
+              desc = "Large (~50KB) - demonstrates capacity"
 
           print(f"Generating {service_count} services for {size} test...")
 
