@@ -61,10 +61,14 @@ jobs:
           # Convert to JSON string
           manifest_json = json.dumps(manifest, separators=(',', ':'))
 
-          # Write to step outputs (not file)
-          with open(os.environ['CLOUDBEES_OUTPUTS'], 'a') as f:
-              f.write(f'manifest={manifest_json}\n')
-              f.write(f'size={len(manifest_json)}\n')
+          # Write to step outputs (CLOUDBEES_OUTPUTS is a directory)
+          output_dir = os.environ['CLOUDBEES_OUTPUTS']
+
+          with open(os.path.join(output_dir, 'manifest'), 'w') as f:
+              f.write(manifest_json)
+
+          with open(os.path.join(output_dir, 'size'), 'w') as f:
+              f.write(str(len(manifest_json)))
 
           print(f"Generated manifest: {len(manifest_json)} bytes")
           PYTHON
