@@ -2,7 +2,6 @@ apiVersion: automation.cloudbees.io/v1alpha1
 kind: workflow
 name: demo-regular-workflow
 
-
 on:
   workflow_dispatch:
     inputs:
@@ -20,10 +19,12 @@ jobs:
   demo-regular:
     steps:
       - name: Generate Test Data
+        id: generate
         uses: docker://python:3.11-alpine
         run: |
           python3 << 'PYTHON'
           import json
+          import os
 
           # Determine size based on input
           size = "${{ inputs.test-size }}"
@@ -57,20 +58,21 @@ jobs:
               "services": services
           }
 
-          # Write to file
-          with open('/tmp/manifest.json', 'w') as f:
-              json.dump(manifest, f, separators=(',', ':'))
+          # Convert to JSON string
+          manifest_json = json.dumps(manifest, separators=(',', ':'))
 
-          # Show size
-          import os
-          size = os.path.getsize('/tmp/manifest.json')
-          print(f"Generated manifest: {size} bytes")
+          # Write to step outputs (not file)
+          with open(os.environ['CLOUDBEES_OUTPUTS'], 'a') as f:
+              f.write(f'manifest={manifest_json}\n')
+              f.write(f'size={len(manifest_json)}\n')
+
+          print(f"Generated manifest: {len(manifest_json)} bytes")
           PYTHON
 
       - name: Validate Manifest Size
         uses: docker://alpine:3.18
         run: |
-          SIZE=$(wc -c < /tmp/manifest.json)
+          SIZE="${{ steps.generate.outputs.size }}"
 
           echo "========================================="
           echo "REGULAR WORKFLOW: Large Input Demo"
@@ -99,9 +101,11 @@ jobs:
         run: |
           python3 << 'PYTHON'
           import json
+          import os
 
-          with open('/tmp/manifest.json', 'r') as f:
-              manifest = json.load(f)
+          # Read manifest from environment variable (passed from step output)
+          manifest_str = os.environ.get('MANIFEST_JSON', '{}')
+          manifest = json.loads(manifest_str)
 
           print("\n✅ Successfully processed manifest!")
           print(f"   Services: {len(manifest['services'])}")
@@ -119,4 +123,5 @@ jobs:
           print("✅ Regular workflow completed successfully!")
           print("✅ CBP-20940 validation (32KB limit) is working!")
           PYTHON
-
+        env:
+          MANIFEST_JSON: ${{ steps.generate.outputs.manifest }}
