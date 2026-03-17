@@ -22,8 +22,6 @@ jobs:
           echo "CloudBees Platform: Large Input Support"
           echo "=========================================="
           echo ""
-          echo "✅ THIS WORKFLOW IS RUNNING!"
-          echo ""
           echo "Manifest size: ${SIZE} bytes ($(echo "scale=1; ${SIZE}/1024" | bc) KB)"
           echo ""
 
@@ -61,45 +59,6 @@ jobs:
             echo "⚠️  Note: If you see this workflow running,"
             echo "   validation may not be properly enforced."
           fi
-
-      - name: Process Manifest
-        uses: docker://python:3.11-alpine
-        run: |
-          python3 << 'PYTHON'
-          import json
-          import os
-
-          manifest_str = os.environ.get('MANIFEST', '{}')
-          manifest = json.loads(manifest_str)
-
-          print("\n" + "="*50)
-          print("Processing Deployment Manifest")
-          print("="*50 + "\n")
-
-          print(f"✅ Successfully parsed manifest")
-          print(f"   Release: {manifest.get('release', 'N/A')}")
-          print(f"   Environment: {manifest.get('environment', 'N/A')}")
-          print(f"   Description: {manifest.get('description', 'N/A')}")
-          print()
-
-          services = manifest.get('services', [])
-          print(f"Services: {len(services)} total")
-          print()
-
-          if services:
-              print("First 5 services:")
-              for i, svc in enumerate(services[:5], 1):
-                  print(f"   {i}. {svc['name']} v{svc['version']}")
-                  print(f"      Repository: {svc['repository']}")
-                  print(f"      Port: {svc['port']}, Replicas: {svc['replicas']}")
-
-              if len(services) > 5:
-                  print(f"\n   ... and {len(services) - 5} more services")
-
-          print()
-          PYTHON
-        env:
-          MANIFEST: ${{ inputs.deployment-manifest }}
 
       - name: Demo Summary
         uses: docker://alpine:3.18
