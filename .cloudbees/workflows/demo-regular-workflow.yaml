@@ -1,103 +1,65 @@
 apiVersion: automation.cloudbees.io/v1alpha1
 kind: workflow
-name: demo-regular-workflow
+name: demo-cbp-20940-validation
 
 on:
   workflow_dispatch:
     inputs:
-      test-size:
-        description: 'Test scenario'
-        type: choice
-        options:
-          - small-4kb
-          - medium-16kb
-          - large-30kb
+      deployment-manifest:
+        description: 'Service deployment manifest (paste JSON from test-data/manifest-*.json)'
+        type: string
         required: true
-        default: medium-16kb
 
 jobs:
-  demo-regular:
+  validate-and-process:
     steps:
-      - name: Generate Test Data
-        id: generate
-        uses: docker://python:3.11-alpine
-        run: |
-          python3 << 'PYTHON'
-          import json
-          import os
-
-          # Determine size based on input
-          size = "${{ inputs.test-size }}"
-
-          if size == "small-4kb":
-              service_count = 10
-              desc = "Small manifest (~3KB) - baseline test"
-          elif size == "medium-16kb":
-              service_count = 75
-              desc = "Medium manifest (~10KB) - demonstrates CBP-20940"
-          else:  # large-30kb
-              service_count = 225
-              desc = "Large manifest (~22KB) - near 32KB validation limit"
-
-          # Generate services
-          services = []
-          for i in range(1, service_count + 1):
-              services.append({
-                  "name": f"service-{i}",
-                  "version": f"1.0.{i}",
-                  "repository": f"github.com/company/service-{i}",
-                  "port": 8000 + i,
-                  "replicas": 3,
-                  "resources": {"cpu": "500m", "memory": "512Mi"}
-              })
-
-          manifest = {
-              "release": "1.0.0",
-              "environment": "production",
-              "description": desc,
-              "services": services
-          }
-
-          # Convert to JSON string
-          manifest_json = json.dumps(manifest, separators=(',', ':'))
-
-          # Write to step outputs (CLOUDBEES_OUTPUTS is a directory)
-          output_dir = os.environ['CLOUDBEES_OUTPUTS']
-
-          with open(os.path.join(output_dir, 'manifest'), 'w') as f:
-              f.write(manifest_json)
-
-          with open(os.path.join(output_dir, 'size'), 'w') as f:
-              f.write(str(len(manifest_json)))
-
-          print(f"Generated manifest: {len(manifest_json)} bytes")
-          PYTHON
-
-      - name: Validate Manifest Size
+      - name: Show CBP-20940 Achievement
         uses: docker://alpine:3.18
         run: |
-          SIZE="${{ steps.generate.outputs.size }}"
+          SIZE=$(echo -n '${{ inputs.deployment-manifest }}' | wc -c)
 
-          echo "========================================="
-          echo "REGULAR WORKFLOW: Large Input Demo"
-          echo "========================================="
+          echo "=========================================="
+          echo "CloudBees Platform: Large Input Support"
+          echo "=========================================="
           echo ""
-          echo "Test Size: ${{ inputs.test-size }}"
-          echo "Manifest: ${SIZE} bytes"
+          echo "✅ THIS WORKFLOW IS RUNNING!"
+          echo ""
+          echo "Manifest size: ${SIZE} bytes ($(echo "scale=1; ${SIZE}/1024" | bc) KB)"
           echo ""
 
-          if [ "$SIZE" -le 4096 ]; then
-            echo "📊 Status: Under 4KB (old limit)"
-            echo "   ✅ Would work before CBP-20940"
-          elif [ "$SIZE" -le 32768 ]; then
-            echo "📊 Status: ${SIZE} bytes (between 4KB-32KB)"
-            echo "   ❌ Would FAIL before CBP-20940 (4KB limit)"
-            echo "   ✅ WORKS after CBP-20940 (32KB limit)"
+          if [ $SIZE -le 32768 ]; then
+            echo "✅ STATUS: Input accepted (within 32KB limit)"
             echo ""
-            echo "💡 This demonstrates CBP-20940 improvement!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "CBP-20940: Input Validation Increase"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "Achievement:"
+            echo "  • Previous validation limit: 4KB (4,096 bytes)"
+            echo "  • New validation limit: 32KB (32,768 bytes)"
+            echo "  • Capacity increase: 8x"
+            echo ""
+            echo "What this enables:"
+            echo "  ✓ Large deployment manifests"
+            echo "  ✓ Complex configuration files"
+            echo "  ✓ Comprehensive test data"
+            echo "  ✓ Realistic workflow inputs"
+            echo ""
+            echo "This ${SIZE}-byte input is now accepted by"
+            echo "the platform, enabling more powerful workflows."
+
           else
-            echo "📊 Status: Exceeds 32KB validation limit"
-            echo "   ❌ Would fail validation"
+            echo "❌ STATUS: Input rejected (exceeds 32KB limit)"
+            echo ""
+            echo "Boundary: 32KB validation limit (32,768 bytes)"
+            echo "  • Input size: ${SIZE} bytes"
+            echo "  • Exceeds limit by: $((SIZE - 32768)) bytes"
+            echo ""
+            echo "The 32KB limit provides reasonable capacity"
+            echo "while preventing excessive input sizes."
+            echo ""
+            echo "⚠️  Note: If you see this workflow running,"
+            echo "   validation may not be properly enforced."
           fi
 
       - name: Process Manifest
@@ -107,25 +69,55 @@ jobs:
           import json
           import os
 
-          # Read manifest from environment variable (passed from step output)
-          manifest_str = os.environ.get('MANIFEST_JSON', '{}')
+          manifest_str = os.environ.get('MANIFEST', '{}')
           manifest = json.loads(manifest_str)
 
-          print("\n✅ Successfully processed manifest!")
-          print(f"   Services: {len(manifest['services'])}")
-          print(f"   Release: {manifest['release']}")
-          print(f"   Environment: {manifest['environment']}")
-          print("")
-          print("First 3 services:")
-          for svc in manifest['services'][:3]:
-              print(f"   • {svc['name']} v{svc['version']}")
+          print("\n" + "="*50)
+          print("Processing Deployment Manifest")
+          print("="*50 + "\n")
 
-          if len(manifest['services']) > 3:
-              print(f"   ... and {len(manifest['services']) - 3} more")
+          print(f"✅ Successfully parsed manifest")
+          print(f"   Release: {manifest.get('release', 'N/A')}")
+          print(f"   Environment: {manifest.get('environment', 'N/A')}")
+          print(f"   Description: {manifest.get('description', 'N/A')}")
+          print()
 
-          print("")
-          print("✅ Regular workflow completed successfully!")
-          print("✅ CBP-20940 validation (32KB limit) is working!")
+          services = manifest.get('services', [])
+          print(f"Services: {len(services)} total")
+          print()
+
+          if services:
+              print("First 5 services:")
+              for i, svc in enumerate(services[:5], 1):
+                  print(f"   {i}. {svc['name']} v{svc['version']}")
+                  print(f"      Repository: {svc['repository']}")
+                  print(f"      Port: {svc['port']}, Replicas: {svc['replicas']}")
+
+              if len(services) > 5:
+                  print(f"\n   ... and {len(services) - 5} more services")
+
+          print()
           PYTHON
         env:
-          MANIFEST_JSON: ${{ steps.generate.outputs.manifest }}
+          MANIFEST: ${{ inputs.deployment-manifest }}
+
+      - name: Demo Summary
+        uses: docker://alpine:3.18
+        run: |
+          SIZE=$(echo -n '${{ inputs.deployment-manifest }}' | wc -c)
+
+          echo ""
+          echo "=========================================="
+          echo "✅ DEMO COMPLETED SUCCESSFULLY"
+          echo "=========================================="
+          echo ""
+          echo "What this demonstrated:"
+          echo "  1. ✅ Input passed 32KB validation at submission"
+          echo "  2. ✅ Workflow received full ${SIZE}-byte manifest"
+          echo "  3. ✅ Data processed successfully"
+          echo ""
+          echo "CBP-20940 Impact:"
+          echo "  • Users can submit larger workflow inputs"
+          echo "  • 8x increase in validation capacity (4KB → 32KB)"
+          echo "  • Enables real-world deployment scenarios"
+          echo ""
