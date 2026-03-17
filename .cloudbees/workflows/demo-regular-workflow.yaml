@@ -1,8 +1,7 @@
-apiVersion: v1
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
 name: demo-regular-workflow
-description: |
-  Demo: Regular workflow with large input support (CBP-20940)
-  Shows validation increased from 4KB to 32KB
+
 
 on:
   workflow_dispatch:
@@ -121,7 +120,3 @@ jobs:
           print("✅ CBP-20940 validation (32KB limit) is working!")
           PYTHON
 
-outputs:
-  status:
-    description: 'Processing status'
-    value: 'success'
