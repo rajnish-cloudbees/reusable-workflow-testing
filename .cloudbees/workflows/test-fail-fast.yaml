@@ -1,0 +1,16 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: test-fail-fast
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fail-immediately:
+    steps:
+      - name: Fail with exit 1
+        uses: docker://alpine:3.18
+        run: |
+          echo "This workflow is designed to fail immediately."
+          echo "Testing status transitions: PENDING -> STARTED -> FAILED"
+          exit 1
